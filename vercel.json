@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "buildCommand": "cd asset-inventory/client && npm install && npm run build",
+  "outputDirectory": "asset-inventory/client/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
