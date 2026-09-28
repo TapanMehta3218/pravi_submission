@@ -1,0 +1,32 @@
+const {test,expect}=require('@playwright/test');
+const {credentials,login}=require('./helpers');
+test('sign-in errors, preserved destination, reload, account and sign-out',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/assets/2');await expect(page).toHaveURL(/\/login$/);
+ await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
+ await page.getByLabel('Email address').fill(credentials.email);
+ await page.getByLabel('Password',{exact:true}).fill('incorrect-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('alert')).toHaveText('Email or password is incorrect.');
+ await page.getByLabel('Password',{exact:true}).fill(credentials.password);
+ await page.screenshot({path:'test-results/sign-in.png',fullPage:true});
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/assets\/2$/);
+ await page.reload();await expect(page.getByRole('heading',{name:'Diesel Generator DG-01'})).toBeVisible();
+ expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>/token|jwt/i.test(k)))).toEqual([]);
+ expect(await page.evaluate(()=>document.cookie.includes('infratrack_session'))).toBe(false);
+ await page.getByLabel('Account menu').click();await page.getByRole('link',{name:'Your account',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Your account',exact:true})).toBeVisible();
+ await page.getByLabel('Current password',{exact:true}).fill(credentials.password);
+ await page.getByLabel('New password',{exact:true}).fill('new-e2e-passphrase-valid');
+ await page.getByLabel('Confirm new password',{exact:true}).fill('new-e2e-passphrase-valid');
+ await page.getByRole('button',{name:'Update password'}).click();await expect(page.getByRole('status')).toContainText('Password changed');
+ await page.getByLabel('Current password',{exact:true}).fill('new-e2e-passphrase-valid');await page.getByLabel('New password',{exact:true}).fill(credentials.password);await page.getByLabel('Confirm new password',{exact:true}).fill(credentials.password);await page.getByRole('button',{name:'Update password'}).click();await expect(page.getByLabel('Current password',{exact:true})).toHaveValue('');
+ await page.getByLabel('Account menu').click();await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
+ await page.goto('/');await expect(page).toHaveURL(/\/login$/);expect(errors).toEqual([]);
+});
+test('expired session returns to login and login layout fits mobile',async({page,context})=>{
+ await login(context.request);await page.goto('/');await expect(page.getByRole('heading',{name:'Every asset. A clearer picture.'})).toBeVisible();
+ await context.clearCookies();await page.getByRole('link',{name:'Asset inventory',exact:true}).click();
+ await expect(page.getByText('Your session ended. Sign in again to return to where you left off.')).toBeVisible();
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/sign-in-mobile.png',fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});
